@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import requests, json, re
 import time, datetime, os, sys
+import random
 import getpass
 from halo import Halo
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -61,6 +62,7 @@ class DaKa(object):
             res = self.sess.get(self.base_url)
             html = res.content.decode()
         
+        res.raise_for_status()
         try:
             old_info = json.loads(re.findall(r'oldInfo: ({[^\n]+})', html)[0])
             new_info_tmp = json.loads(re.findall(r'def = ({[^\n]+})', html)[0])
@@ -113,13 +115,17 @@ class DecodeError(Exception):
     pass
 
 
-def main(username, password):
+def main(username, password, max_delay_sec):
     """Hit card process
 
     Arguments:
         username: (str) 浙大统一认证平台用户名（一般为学号）
         password: (str) 浙大统一认证平台密码
     """
+    print("\n[Time] %s" %datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    delay_time = int(random.random()*max_delay_sec)
+    print("\n[Delaying] {:02d}:{:02d}:{:02d}".format(delay_time//3600, (delay_time%3600)//60, delay_time % 60))
+    time.sleep(delay_time)
     print("\n[Time] %s" %datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     print("🚌 打卡任务启动")
     spinner = Halo(text='Loading', spinner='dots')
@@ -139,13 +145,14 @@ def main(username, password):
     try:
         dk.get_info()
         spinner.succeed('%s %s同学, 你好~' %(dk.info['number'], dk.info['name']))
+        print('\n[Address] {}'.format(dk.info['address']))
     except Exception as err:
         spinner.fail('获取信息失败，请手动打卡，更多信息: ' + str(err))
         return
 
     spinner.start(text='正在为您打卡打卡打卡')
     try:
-        res = dk.post()
+        # res = dk.post()
         if str(res['e']) == '0':
             spinner.stop_and_persist(symbol='🦄 '.encode('utf-8'), text='已为您打卡成功！')
         else:
@@ -162,18 +169,25 @@ if __name__=="__main__":
         password = configs["password"]
         hour = configs["schedule"]["hour"]
         minute = configs["schedule"]["minute"]
+        max_delay_sec = configs["schedule"]["max_delay_sec"]
     else:
         username = input("👤 浙大统一认证用户名: ")
         password = getpass.getpass('🔑 浙大统一认证密码: ')
         print("⏲  请输入定时时间（默认每天6:05）")
         hour = input("\thour: ") or 6
         minute = input("\tminute: ") or 5
+        max_delay_sec = input("\tmax delay seconds: ") or 0
 
+    hour = int(hour)
+    minute = int(minute)
+    max_delay_sec = int(max_delay_sec)
     # Schedule task
     scheduler = BlockingScheduler()
-    scheduler.add_job(main, 'cron', args=[username, password], hour=hour, minute=minute)
-    print('⏰ 已启动定时程序，每天 %02d:%02d 为您打卡' %(int(hour), int(minute)))
+    scheduler.add_job(main, 'cron', args=[username, password, max_delay_sec], hour=hour, minute=minute)
+    print('⏰ 已启动定时程序，每天 %02d:%02d ~ %02d:%02d为您打卡' %(int(hour), int(minute), int(hour+max_delay_sec//3600), int(minute+(max_delay_sec%3600)//60)))
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
+    # Test
+    # main(username, password, 0)
 
     try:
         scheduler.start()
