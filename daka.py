@@ -116,7 +116,7 @@ class DecodeError(Exception):
     pass
 
 
-def main(username, password, max_delay_sec, note_api='', message=''):
+def main(username, password, max_delay_sec, args):
     """Hit card process
 
     Arguments:
@@ -158,15 +158,19 @@ def main(username, password, max_delay_sec, note_api='', message=''):
             spinner.stop_and_persist(symbol='🦄 '.encode('utf-8'), text='已为您打卡成功！')
         else:
             spinner.stop_and_persist(symbol='🦄 '.encode('utf-8'), text=res['m'])
+        if args['note_api'] and args['message']:
+            print('post to serverchan')
+            dk.sess.get(args['note_api']+'?text='+args['message'])
     except:
         spinner.fail('数据提交失败')
-        if note_api:
+        if args['note_api'] and args['err_msg']:
             print('post to serverchan')
-            dk.sess.get(note_api+'?text='+message)
+            dk.sess.get(args['note_api']+'?text='+args['err_msg'])
         return 
 
 
 if __name__=="__main__":
+    args = {}
     if os.path.exists('./config.json'):
         configs = json.loads(open('./config.json', 'r').read())
         username = configs["username"]
@@ -174,8 +178,9 @@ if __name__=="__main__":
         hour = configs["schedule"]["hour"]
         minute = configs["schedule"]["minute"]
         max_delay_sec = configs["schedule"]["max_delay_sec"]
-        note_api = configs["note_api"]
-        message = configs["message"]
+        args['note_api'] = configs["note_api"]
+        args['message'] = configs["message"]
+        args['err_msg'] = configs["err_msg"]
     else:
         username = input("👤 浙大统一认证用户名: ")
         password = getpass.getpass('🔑 浙大统一认证密码: ')
@@ -183,19 +188,20 @@ if __name__=="__main__":
         hour = input("\thour: ") or 6
         minute = input("\tminute: ") or 5
         max_delay_sec = input("\tmax delay seconds: ") or 0
-        note_api = ''
-        message = ''
+        args['note_api'] = ''
+        args['message'] = ''
+        args['err_msg'] = ''
 
     hour = int(hour)
     minute = int(minute)
     max_delay_sec = int(max_delay_sec)
     # Schedule task
     scheduler = BlockingScheduler()
-    scheduler.add_job(main, 'cron', args=[username, password, max_delay_sec, note_api], hour=hour, minute=minute)
+    scheduler.add_job(main, 'cron', args=[username, password, max_delay_sec, args], hour=hour, minute=minute)
     print('⏰ 已启动定时程序，每天 %02d:%02d ~ %02d:%02d为您打卡' %(int(hour), int(minute), int(hour+max_delay_sec//3600), int(minute+(max_delay_sec%3600)//60)))
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
     # Test
-    # main(username, password, 0, note_api, message)
+    # main(username, password, 0, args)
 
     try:
         scheduler.start()
