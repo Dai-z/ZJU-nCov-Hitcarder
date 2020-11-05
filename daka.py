@@ -159,12 +159,15 @@ def main(username, password, max_delay_sec, args):
         else:
             spinner.stop_and_persist(symbol='🦄 '.encode('utf-8'), text=res['m'])
         if args['note_api'] and args['message']:
-            print('post to serverchan')
-            dk.sess.get(args['note_api']+'?text='+args['message'])
+            print('[Success]post to serverchan')
+            if str(res['e']) == '0':
+                dk.sess.get(args['note_api']+'?text='+args['message'])
+            else:
+                dk.sess.get(args['note_api']+'?text='+res['m'])
     except:
         spinner.fail('数据提交失败')
         if args['note_api'] and args['err_msg']:
-            print('post to serverchan')
+            print('[Failed]post to serverchan')
             dk.sess.get(args['note_api']+'?text='+args['err_msg'])
         return 
 
