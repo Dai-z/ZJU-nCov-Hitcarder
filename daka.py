@@ -6,6 +6,7 @@ import random
 import getpass
 from halo import Halo
 from apscheduler.schedulers.blocking import BlockingScheduler
+import json
 
 class DaKa(object):
     """Hit card class
@@ -123,10 +124,12 @@ def main(username, password, max_delay_sec, args):
         username: (str) 浙大统一认证平台用户名（一般为学号）
         password: (str) 浙大统一认证平台密码
     """
+    # For Ding robot
+    headers = {'Content-Type': 'application/json',}
     print("\n[Time] %s" %datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     delay_time = int(random.random()*max_delay_sec)
     print("\n[Delaying] {:02d}:{:02d}:{:02d}".format(delay_time//3600, (delay_time%3600)//60, delay_time % 60))
-    time.sleep(delay_time)
+
     print("\n[Time] %s" %datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     print("🚌 打卡任务启动")
     spinner = Halo(text='Loading', spinner='dots')
@@ -150,6 +153,11 @@ def main(username, password, max_delay_sec, args):
     except Exception as err:
         spinner.fail('获取信息失败，请手动打卡，更多信息: ' + str(err))
         return
+    content = '[ZJU]准备打卡\n[Address]'+dk.info['address']
+    data = {"msgtype": "text","text": {"content": content}}
+    response = requests.post(args['note_api'], headers=headers, data=json.dumps(data))
+    # Delay
+    time.sleep(delay_time)
 
     spinner.start(text='正在为您打卡打卡打卡')
     try:
@@ -159,16 +167,26 @@ def main(username, password, max_delay_sec, args):
         else:
             spinner.stop_and_persist(symbol='🦄 '.encode('utf-8'), text=res['m'])
         if args['note_api'] and args['message']:
-            print('[Success]post to serverchan')
+            print('[Success]post to Dingding')
+            content = '[ZJU]'
             if str(res['e']) == '0':
-                dk.sess.get(args['note_api']+'?text='+args['message'])
+                content += args['message']
             else:
-                dk.sess.get(args['note_api']+'?text='+res['m'])
+                # dk.sess.get(args['note_api']+'?text='+res['m'])
+                content += res['m']
+            content += '\n[Address]'+dk.info['address']
+            # print(content)
+            data = {"msgtype": "text","text": {"content": content}}
+            response = requests.post(args['note_api'], headers=headers, data=json.dumps(data))
     except:
         spinner.fail('数据提交失败')
         if args['note_api'] and args['err_msg']:
-            print('[Failed]post to serverchan')
-            dk.sess.get(args['note_api']+'?text='+args['err_msg'])
+            print('[Failed]post to Dingding')
+            content = '[ZJU]'
+            content += args['err_msg']
+            data = {"msgtype": "text","text": {"content": content}}
+            response = requests.post(args['note_api'], headers=headers, data=json.dumps(data))
+            # dk.sess.get(args['note_api']+'?text='+args['err_msg'])
         return 
 
 
