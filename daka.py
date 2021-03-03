@@ -116,6 +116,13 @@ class DecodeError(Exception):
     """JSON Decode Exception"""
     pass
 
+def sendToDing(args, content):
+    # For Ding robot
+    headers = {'Content-Type': 'application/json',}
+    content = '[ZJU]'+content
+    data = {"msgtype": "text","text": {"content": content}}
+    response = requests.post(args['note_api'], headers=headers, data=json.dumps(data))
+
 
 def main(username, password, max_delay_sec, args):
     """Hit card process
@@ -124,10 +131,8 @@ def main(username, password, max_delay_sec, args):
         username: (str) 浙大统一认证平台用户名（一般为学号）
         password: (str) 浙大统一认证平台密码
     """
-    # For Ding robot
-    headers = {'Content-Type': 'application/json',}
     print("\n[Time] %s" %datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    delay_time = int(random.random()*max_delay_sec)
+    delay_time = random.randint(0 ,max_delay_sec)
     print("\n[Delaying] {:02d}:{:02d}:{:02d}".format(delay_time//3600, (delay_time%3600)//60, delay_time % 60))
 
     print("\n[Time] %s" %datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -142,6 +147,7 @@ def main(username, password, max_delay_sec, args):
         dk.login()
         spinner.succeed('已登录到浙大统一身份认证平台')
     except Exception as err:
+        sendToDing(args, 'Login failed')
         spinner.fail(str(err))
         return
 
@@ -152,10 +158,9 @@ def main(username, password, max_delay_sec, args):
         print('\n[Address] {}'.format(dk.info['address']))
     except Exception as err:
         spinner.fail('获取信息失败，请手动打卡，更多信息: ' + str(err))
+        sendToDing(args, '获取信息失败，请手动打卡，更多信息: ' + str(err))
         return
-    content = '[ZJU]准备打卡\n[Address]'+dk.info['address']
-    data = {"msgtype": "text","text": {"content": content}}
-    response = requests.post(args['note_api'], headers=headers, data=json.dumps(data))
+    sendToDing(args, '准备打卡\n[Address]'+dk.info['address'])
     # Delay
     time.sleep(delay_time)
 
@@ -168,24 +173,20 @@ def main(username, password, max_delay_sec, args):
             spinner.stop_and_persist(symbol='🦄 '.encode('utf-8'), text=res['m'])
         if args['note_api'] and args['message']:
             print('[Success]post to Dingding')
-            content = '[ZJU]'
             if str(res['e']) == '0':
-                content += args['message']
+                content = args['message']
             else:
                 # dk.sess.get(args['note_api']+'?text='+res['m'])
-                content += res['m']
+                content = res['m']
             content += '\n[Address]'+dk.info['address']
+            sendToDing(args, content)
             # print(content)
-            data = {"msgtype": "text","text": {"content": content}}
-            response = requests.post(args['note_api'], headers=headers, data=json.dumps(data))
     except:
         spinner.fail('数据提交失败')
         if args['note_api'] and args['err_msg']:
             print('[Failed]post to Dingding')
-            content = '[ZJU]'
-            content += args['err_msg']
-            data = {"msgtype": "text","text": {"content": content}}
-            response = requests.post(args['note_api'], headers=headers, data=json.dumps(data))
+            content = args['err_msg']
+            sendToDing(args, content)
             # dk.sess.get(args['note_api']+'?text='+args['err_msg'])
         return 
 
